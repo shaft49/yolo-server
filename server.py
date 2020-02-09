@@ -1,3 +1,4 @@
+
 # @Author: Dwivedi Chandan
 # @Date:   2019-08-05T13:35:05+05:30
 # @Email:  chandandwivedi795@gmail.com
@@ -56,7 +57,7 @@ def load_model(configpath,weightspath):
     return net
 
 
-def image_to_byte_array(image:Image):
+def image_to_byte_array(image):
   imgByteArr = io.BytesIO()
   image.save(imgByteArr, format='PNG')
   imgByteArr = imgByteArr.getvalue()
@@ -115,12 +116,15 @@ def get_predection(image,net,LABELS,COLORS):
 
                 # use the center (x, y)-coordinates to derive the top and
                 # and left corner of the bounding box
-                x = int(centerX - (width / 2))
-                y = int(centerY - (height / 2))
+                x = centerX - (width / 2)
+                y = centerY - (height / 2)
+
+                xmax = centerX + (width / 2)
+                ymax = centerY + (height / 2)
 
                 # update our list of bounding box coordinates, confidences,
                 # and class IDs
-                boxes.append([x, y, int(width), int(height)])
+                boxes.append([x, y, xmax, ymax])
                 confidences.append(float(confidence))
                 classIDs.append(classID)
                 count += 1
@@ -145,13 +149,10 @@ def get_predection(image,net,LABELS,COLORS):
             print(boxes)
             print(classIDs)
             cv2.putText(image, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX,0.5, color, 2)
-    text = f"Total Prediction: {count}\n"
-    print(text)
-    print(confthres)
-    result ={
-        'heads': zip(confidences, boxes),
-        'count': count
-    }
+    text = ("Total Prediction: {}\n".format(count))
+    result = {'count': count}
+    heads = [{'confidence': _, 'head': __} for _, __ in zip(confidences, boxes)]
+    result['heads'] = heads
     return result
     #cv2.putText(image, text, (100, 100), cv2.FONT_HERSHEY_SIMPLEX,0.5, color, 20)
     # return image
@@ -169,9 +170,9 @@ def convert_byte_array_to_json(bytes_value):
     s = json.dumps(data, indent=4, sort_keys=True)
     print(s)
 
-labelsPath="head/head.names"
-cfgpath="head/yolov3-custom.cfg"
-wpath="head/yolov3-custom.weights"
+labelsPath="names files path"
+cfgpath=".cfg path"
+wpath=".weights path"
 Lables=get_labels(labelsPath)
 CFG=get_config(cfgpath)
 Weights=get_weights(wpath)
@@ -181,22 +182,22 @@ Colors=get_colors(Lables)
 app = Flask(__name__)
 
 # route http posts to this method
-@app.route('/api/test', methods=['POST'])
+@app.route('/predict', methods=['POST'])
 def main():
     # load our input image and grab its spatial dimensions
     #image = cv2.imread("./test1.jpg")
     global confthres
     img = request.files["image"].read()
-    confthres = request.values["thresh"]
-
     # img = request.args.get("image")
     img = Image.open(io.BytesIO(img))
     npimg=np.array(img)
     image=npimg.copy()
     image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-
+    if 'thresh' in request.values:
+        confthres = float(request.values["thresh"])
     res=get_predection(image,nets,Lables,Colors)
-
+    # print(f'hello {confthres}')
+    # print(confthres)
     return jsonify(res)
     # image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
     # show the output image
